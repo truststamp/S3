@@ -85,4 +85,6 @@ export default {
         'torrent',
         'versions',
     ],
+
+    localUUIDFilename: 'uuid',
 };

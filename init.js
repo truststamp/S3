@@ -43,7 +43,7 @@ function _setDirSyncFlag(path) {
 }
 
 function printUUID(metadataPath) {
-    const uuidFile = `${metadataPath}/uuid`;
+    const uuidFile = `${metadataPath}/${constants.localUUIDFilename}`;
 
     try {
         fs.accessSync(uuidFile, fs.F_OK | fs.R_OK);
