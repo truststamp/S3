@@ -16,9 +16,6 @@ const key = '/';
 function _assertNoError(err, desc) {
     assert.strictEqual(err, null, `Unexpected err ${desc}: ${err}`);
 }
-function getParams() {
-    return { Bucket: bucket, Key: key };
-}
 
 function _deleteVersionList(versionList, bucket, callback) {
     async.each(versionList, (versionInfo, cb) => {
@@ -29,19 +26,25 @@ function _deleteVersionList(versionList, bucket, callback) {
     }, callback);
 }
 
-function _removeAllVersions(bucket, callback) {
-    return s3.listObjectVersions({ Bucket: bucket }, (err, data) => {
-        // console.log('list object versions before deletion', data);
-        if (err) {
-            return callback(err);
-        }
-        return _deleteVersionList(data.DeleteMarkers, bucket, err => {
-            if (err) {
-                return callback(err);
+function _removeAllVersions(params, callback) {
+    async.waterfall([
+        cb => s3.listObjectVersions(params, cb),
+        (data, cb) => _deleteVersionList(data.DeleteMarkers, bucket,
+            err => cb(err, data)),
+        (data, cb) => _deleteVersionList(data.Versions, bucket,
+            err => cb(err, data)),
+        (data, cb) => {
+            if (data.IsTruncated) {
+                const params = {
+                    Bucket: bucket,
+                    KeyMarker: data.NextKeyMarker,
+                    VersionIdMarker: data.NextVersionIdMarker,
+                };
+                return _removeAllVersions(params, cb);
             }
-            return _deleteVersionList(data.Versions, bucket, callback);
-        });
-    });
+            return cb();
+        },
+    ], callback);
 }
 
 describe('put and get object with versioning', function testSuite() {
@@ -53,16 +56,12 @@ describe('put and get object with versioning', function testSuite() {
     });
 
     afterEach(done => {
-        // TODO: remove conditional after listing is implemented
-        if (process.env.AWS_ON_AIR) {
-            return _removeAllVersions(bucket, err => {
-                if (err) {
-                    return done(err);
-                }
-                return s3.deleteBucket({ Bucket: bucket }, done);
-            });
-        }
-        return done();
+        _removeAllVersions({ Bucket: bucket }, err => {
+            if (err) {
+                return done(err);
+            }
+            return s3.deleteBucket({ Bucket: bucket }, done);
+        });
     });
 
     it('should create a non-versioned object', done => {
@@ -87,7 +86,7 @@ describe('put and get object with versioning', function testSuite() {
         });
 
         it('should create a new version for an object', done => {
-            const params = getParams();
+            const params = { Bucket: bucket, Key: key };
             s3.putObject(params, (err, data) => {
                 _assertNoError(err, 'putting object');
                 params.VersionId = data.VersionId;
@@ -103,25 +102,33 @@ describe('put and get object with versioning', function testSuite() {
 
     describe('on a version-enabled bucket with non-versioned object', () => {
         const eTags = [];
+        let bucket = undefined;
 
         beforeEach(done => {
-            s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
-                (err, data) => {
-                    if (err) {
-                        done(err);
-                    }
-                    eTags.push(data.ETag);
-                    s3.putBucketVersioning({
-                        Bucket: bucket,
-                        VersioningConfiguration: versioningEnabled,
-                    }, done);
-                });
+            bucket = `versioning-testing-bucket-${Date.now()}`;
+            s3.createBucket({ Bucket: bucket }, err => {
+                assert.strictEqual(err, null);
+                s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
+                    (err, data) => {
+                        if (err) {
+                            done(err);
+                        }
+                        eTags.push(data.ETag);
+                        s3.putBucketVersioning({
+                            Bucket: bucket,
+                            VersioningConfiguration: versioningEnabled,
+                        }, done);
+                    });
+            });
         });
 
         afterEach(done => {
             // reset eTags
             eTags.length = 0;
-            done();
+            _removeAllVersions(bucket, err => {
+                assert.strictEqual(err, null);
+                s3.deleteBucket({ Bucket: bucket }, done);
+            });
         });
 
         it('should get null version in versioning enabled bucket',
@@ -242,17 +249,21 @@ describe('put and get object with versioning', function testSuite() {
         const eTags = [];
 
         beforeEach(done => {
-            s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
-                (err, data) => {
-                    if (err) {
-                        done(err);
-                    }
-                    eTags.push(data.ETag);
-                    s3.putBucketVersioning({
-                        Bucket: bucket,
-                        VersioningConfiguration: versioningSuspended,
-                    }, done);
-                });
+            bucket = `versioning-testing-bucket-${Date.now()}`;
+            s3.createBucket({ Bucket: bucket }, err => {
+                assert.strictEqual(err, null);
+                s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
+                    (err, data) => {
+                        if (err) {
+                            done(err);
+                        }
+                        eTags.push(data.ETag);
+                        s3.putBucketVersioning({
+                            Bucket: bucket,
+                            VersioningConfiguration: versioningSuspended,
+                        }, done);
+                    });
+            });
         });
 
         afterEach(done => {
