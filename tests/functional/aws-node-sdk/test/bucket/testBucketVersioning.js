@@ -211,19 +211,17 @@ describe.skip('aws-node-sdk test bucket versioning', function testSuite() {
             callback => s3.putObject(params, (err, data) => {
                 assert.strictEqual(err, null);
                 versionIds.push('null');
-                newNullVersionId = data.VersionId;
-                assert(newNullVersionId < nullVersionId, 'new null >= null');
                 callback();
             }),
             callback => s3.getObject(paramsNull, (err, data) => {
                 assert.strictEqual(err, null);
-                assert.strictEqual(newNullVersionId, data.VersionId,
-                        'version ids are not equal');
+                assert.strictEqual(data.VersionId, 'null',
+                        'version ids are equal');
                 callback();
             }),
             callback => s3.getObject(params, (err, data) => {
                 assert.strictEqual(err, null);
-                assert.strictEqual(newNullVersionId, data.VersionId,
+                assert.strictEqual(data.VersionId, 'null',
                         'version ids are not equal');
                 callback();
             }),
