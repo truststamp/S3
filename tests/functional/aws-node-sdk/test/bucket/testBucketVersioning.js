@@ -200,15 +200,15 @@ describe.skip('aws-node-sdk test bucket versioning', function testSuite() {
     it('should update null version in versioning suspended bucket', done => {
         const params = { Bucket: bucket, Key: '/' };
         const paramsNull = { Bucket: bucket, Key: '/', VersionId: 'null' };
-        let nullVersionId = undefined;
-        let newNullVersionId = undefined;
+        // let nullVersionId = undefined;
+        // let newNullVersionId = undefined;
         async.waterfall([
-            callback => s3.getObject(paramsNull, (err, data) => {
+            callback => s3.getObject(paramsNull, err => {
                 assert.strictEqual(err, null);
-                nullVersionId = data.VersionId;
+                // nullVersionId = data.VersionId;
                 callback();
             }),
-            callback => s3.putObject(params, (err, data) => {
+            callback => s3.putObject(params, err => {
                 assert.strictEqual(err, null);
                 versionIds.push('null');
                 callback();
