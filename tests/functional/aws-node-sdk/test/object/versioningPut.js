@@ -29,7 +29,6 @@ function _deleteVersionList(versionList, bucket, callback) {
 
 function _removeAllVersions(bucket, callback) {
     return s3.listObjectVersions({ Bucket: bucket }, (err, data) => {
-        console.log('list object versions before deletion', data);
         if (err) {
             callback(err);
         }
