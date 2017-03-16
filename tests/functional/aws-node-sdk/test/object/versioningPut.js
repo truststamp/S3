@@ -29,7 +29,7 @@ function _deleteVersionList(versionList, bucket, callback) {
 
 function _removeAllVersions(bucket, callback) {
     return s3.listObjectVersions({ Bucket: bucket }, (err, data) => {
-        // console.log('list object versions before deletion', data);
+        console.log('list object versions before deletion', data);
         if (err) {
             callback(err);
         }
@@ -42,7 +42,7 @@ function _removeAllVersions(bucket, callback) {
     });
 }
 
-describe('aws-node-sdk test object versioning', function testSuite() {
+describe.only('aws-node-sdk test object versioning', function testSuite() {
     this.timeout(600000);
     const counter = 100;
 
@@ -106,25 +106,33 @@ describe('aws-node-sdk test object versioning', function testSuite() {
     describe('on a version-enabled bucket with non-versioned object', () => {
         const data = ['foo1', 'foo2'];
         const eTags = [];
+        let bucket = undefined;
 
         beforeEach(done => {
-            s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
-                (err, data) => {
-                    if (err) {
-                        done(err);
-                    }
-                    eTags.push(data.ETag);
-                    s3.putBucketVersioning({
-                        Bucket: bucket,
-                        VersioningConfiguration: versioningEnabled,
-                    }, done);
-                });
+            bucket = `versioning-testing-bucket-${Date.now()}`;
+            s3.createBucket({ Bucket: bucket }, err => {
+                assert.strictEqual(err, null);
+                s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
+                    (err, data) => {
+                        if (err) {
+                            done(err);
+                        }
+                        eTags.push(data.ETag);
+                        s3.putBucketVersioning({
+                            Bucket: bucket,
+                            VersioningConfiguration: versioningEnabled,
+                        }, done);
+                    });
+            });
         });
 
         afterEach(done => {
             // reset eTags
             eTags.length = 0;
-            done();
+            _removeAllVersions(bucket, err => {
+                assert.strictEqual(err, null);
+                s3.deleteBucket({ Bucket: bucket }, done);
+            });
         });
 
         it('should get null version in versioning enabled bucket',
@@ -208,19 +216,33 @@ describe('aws-node-sdk test object versioning', function testSuite() {
     describe('on a version-suspended bucket with non-versioned object', () => {
         const eTags = [];
         const data = ['test'];
+        let bucket = undefined;
 
         beforeEach(done => {
-            s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
-                (err, data) => {
-                    if (err) {
-                        done(err);
-                    }
-                    eTags.push(data.ETag);
-                    s3.putBucketVersioning({
-                        Bucket: bucket,
-                        VersioningConfiguration: versioningSuspended,
-                    }, done);
-                });
+            bucket = `versioning-testing-bucket-${Date.now()}`;
+            s3.createBucket({ Bucket: bucket }, err => {
+                assert.strictEqual(err, null);
+                s3.putObject({ Bucket: bucket, Key: key, Body: data[0] },
+                    (err, data) => {
+                        if (err) {
+                            done(err);
+                        }
+                        eTags.push(data.ETag);
+                        s3.putBucketVersioning({
+                            Bucket: bucket,
+                            VersioningConfiguration: versioningSuspended,
+                        }, done);
+                    });
+            });
+        });
+
+        afterEach(done => {
+            // reset eTags
+            eTags.length = 0;
+            _removeAllVersions(bucket, err => {
+                assert.strictEqual(err, null);
+                s3.deleteBucket({ Bucket: bucket }, done);
+            });
         });
 
         it('should get null version in versioning suspended bucket',
