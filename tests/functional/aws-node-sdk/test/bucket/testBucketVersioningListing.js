@@ -80,11 +80,37 @@ describe('aws-node-sdk test bucket versioning listing', function testSuite() {
         });
     });
 
+    it('should create some delete markers', done => {
+        const keycount = 15;
+        async.times(keycount, (i, next) => {
+            const key = masterVersions[i];
+            const params = { Bucket: bucket, Key: key };
+            s3.deleteObject(params, (err, data) => {
+                assert.strictEqual(err, null);
+                assert(data.VersionId, 'invalid versionId');
+                allVersions.push({ Key: key, VersionId: data.VersionId });
+                next();
+            });
+        }, done);
+    });
+
+    it('should list all latest versions', done => {
+        const params = { Bucket: bucket, MaxKeys: 1000, Delimiter: '/' };
+        s3.listObjects(params, (err, data) => {
+            const keys = data.Contents.map(entry => entry.Key);
+            assert.deepStrictEqual(keys.sort(), masterVersions.sort().slice(15),
+                    'not same keys');
+            done();
+        });
+    });
+
     it('should list all versions', done => {
         const versions = [];
         const params = { Bucket: bucket, MaxKeys: 15, Delimiter: '/' };
         async.retry(100, done => s3.listObjectVersions(params, (err, data) => {
             data.Versions.forEach(version => versions.push({
+                Key: version.Key, VersionId: version.VersionId }));
+            data.DeleteMarkers.forEach(version => versions.push({
                 Key: version.Key, VersionId: version.VersionId }));
             if (data.IsTruncated) {
                 params.KeyMarker = data.NextKeyMarker;
