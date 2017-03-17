@@ -41,12 +41,20 @@ function _removeAllVersions(bucket, callback) {
     });
 }
 
-describe.only('aws-node-sdk test object versioning', function testSuite() {
+describe('aws-node-sdk test object versioning', function testSuite() {
     this.timeout(600000);
     const counter = 100;
 
     before(done => {
         s3.createBucket({ Bucket: bucket }, done);
+    });
+
+    after(done => {
+        // reset eTags
+        _removeAllVersions(bucket, err => {
+            assert.strictEqual(err, null);
+            s3.deleteBucket({ Bucket: bucket }, done);
+        });
     });
 
     afterEach(done => {
