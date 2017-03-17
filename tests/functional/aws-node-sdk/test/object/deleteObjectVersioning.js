@@ -7,7 +7,7 @@ import getConfig from '../support/config';
 const bucket = `versioning-bucket-${Date.now()}`;
 const key = 'anObject';
 
-describe.only('aws-node-sdk test delete object', function testSuite() {
+describe('aws-node-sdk test delete object', function testSuite() {
     this.timeout(600000);
     let s3 = undefined;
     let versionIds = undefined;
