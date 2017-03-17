@@ -6,7 +6,10 @@ import getConfig from '../support/config';
 
 const bucket = `versioning-bucket-${Date.now()}`;
 
-describe('aws-node-sdk test bucket versioning', function testSuite() {
+const testing = process.env.VERSIONING === 'no' ?
+    describe.skip : describe;
+
+testing('aws-node-sdk test bucket versioning', function testSuite() {
     this.timeout(600000);
     let s3 = undefined;
     const versionIds = [];
