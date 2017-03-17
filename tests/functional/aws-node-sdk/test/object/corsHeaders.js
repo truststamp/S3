@@ -156,7 +156,7 @@ const apiMethods = [
         params: {
             Bucket: bucket,
             VersioningConfiguration: {
-                Status: 'Enabled',
+                Status: 'Suspended',
             },
         },
         onlyRun: {
