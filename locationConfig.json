@@ -30,7 +30,11 @@
         "details": {
             "awsEndpoint": "s3.amazonaws.com",
             "bucketName": "multitester444",
-            "credentialsProfile": "default"
+            "bucketMatch": true,
+            "credentials": {
+                "accessKey": "accessKey1",
+                "secretKey": "verySecretKey1"
+            }
         }
     }
 }
