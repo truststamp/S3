@@ -113,6 +113,7 @@ describe('MultipleBackend put object', () => {
                     });
                 });
             });
+
             it('should put an object to AWS', done => {
                 const params = { Bucket: bucket, Key: key,
                     Body: body,
