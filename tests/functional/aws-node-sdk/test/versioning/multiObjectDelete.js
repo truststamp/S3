@@ -3,6 +3,7 @@ import async from 'async';
 
 import withV4 from '../support/withV4';
 import BucketUtility from '../../lib/utility/bucket-util';
+import { removeAllVersions } from '../../lib/utility/versioning-util';
 
 const bucketName = `multi-object-delete-${Date.now()}`;
 const key = 'key';
@@ -134,6 +135,99 @@ testing('Multi-Object Versioning Delete Success', function success() {
                 })
             ).catch(err => {
                 checkNoError(err);
+            });
+        });
+    });
+});
+
+testing('Multi-Object Versioning Delete - deleting delete marker',
+() => {
+    withV4(sigCfg => {
+        const bucketUtil = new BucketUtility('default', sigCfg);
+        const s3 = bucketUtil.s3;
+
+        beforeEach(done => {
+            async.waterfall([
+                next => s3.createBucket({ Bucket: bucketName },
+                    err => next(err)),
+                next => s3.putBucketVersioningAsync({
+                    Bucket: bucketName,
+                    VersioningConfiguration: {
+                        Status: 'Enabled',
+                    },
+                }, err => next(err)),
+            ], done);
+        });
+        afterEach(done => {
+            removeAllVersions({ Bucket: bucketName }, err => {
+                if (err) {
+                    return done(err);
+                }
+                return s3.deleteBucket({ Bucket: bucketName }, err => {
+                    assert.strictEqual(err, null,
+                        `Error deleting bucket: ${err}`);
+                    return done();
+                });
+            });
+        });
+
+        it('should send back VersionId and DeleteMarkerVersionId both equal ' +
+        'to deleteVersionId', done => {
+            async.waterfall([
+                next => s3.putObject({ Bucket: bucketName, Key: key },
+                  err => next(err)),
+                next => s3.deleteObject({ Bucket: bucketName,
+                Key: key }, (err, data) => {
+                    const deleteVersionId = data.VersionId;
+                    next(err, deleteVersionId);
+                }),
+                (deleteVersionId, next) => s3.deleteObjects({ Bucket:
+                  bucketName,
+                  Delete: {
+                      Objects: [
+                          {
+                              Key: key,
+                              VersionId: deleteVersionId,
+                          },
+                      ],
+                  } }, (err, data) => {
+                    assert.strictEqual(data.Deleted[0].DeleteMarker, true);
+                    assert.strictEqual(data.Deleted[0].VersionId,
+                      deleteVersionId);
+                    assert.strictEqual(data.Deleted[0].DeleteMarkerVersionId,
+                      deleteVersionId);
+                    next(err);
+                }),
+            ], err => done(err));
+        });
+
+        it('should send back a DeleteMarkerVersionId matching the versionId ' +
+        'stored for the object', done => {
+            s3.deleteObjects({ Bucket: bucketName,
+              Delete: {
+                  Objects: [
+                      {
+                          Key: key,
+                      },
+                  ],
+              } }, (err, data) => {
+                if (err) {
+                    return done(err);
+                }
+                const versionIdFromDeleteObjects =
+                  data.Deleted[0].DeleteMarkerVersionId;
+                assert.strictEqual(data.Deleted[0].DeleteMarker, true);
+                return s3.listObjectVersions({ Bucket: bucketName },
+                  (err, data) => {
+                      if (err) {
+                          return done(err);
+                      }
+                      const versionIdFromListObjectVersions =
+                        data.DeleteMarkers[0].VersionId;
+                      assert.strictEqual(versionIdFromDeleteObjects,
+                        versionIdFromListObjectVersions);
+                      return done();
+                  });
             });
         });
     });
