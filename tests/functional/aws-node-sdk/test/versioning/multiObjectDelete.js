@@ -202,7 +202,8 @@ testing('Multi-Object Versioning Delete - deleting delete marker',
         });
 
         it('should send back a DeleteMarkerVersionId matching the versionId ' +
-        'stored for the object', done => {
+      'stored for the object if trying to delete an object that does not exist',
+        done => {
             s3.deleteObjects({ Bucket: bucketName,
               Delete: {
                   Objects: [
@@ -229,6 +230,47 @@ testing('Multi-Object Versioning Delete - deleting delete marker',
                       return done();
                   });
             });
+        });
+
+        it('should send back a DeleteMarkerVersionId matching the versionId ' +
+        'stored for the object if object exists but no version was specified',
+        done => {
+            async.waterfall([
+                next => s3.putObject({ Bucket: bucketName, Key: key },
+                  (err, data) => {
+                      const versionId = data.VersionId;
+                      next(err, versionId);
+                  }),
+                (versionId, next) => s3.deleteObjects({ Bucket:
+                  bucketName,
+                  Delete: {
+                      Objects: [
+                          {
+                              Key: key,
+                          },
+                      ],
+                  } }, (err, data) => {
+                    if (err) {
+                        return next(err);
+                    }
+                    assert.strictEqual(data.Deleted[0].DeleteMarker, true);
+                    const deleteVersionId = data.Deleted[0].
+                    DeleteMarkerVersionId;
+                    assert.notEqual(deleteVersionId, versionId);
+                    return next(err, deleteVersionId, versionId);
+                }),
+                (deleteVersionId, versionId, next) => s3.listObjectVersions(
+                { Bucket: bucketName }, (err, data) => {
+                    if (err) {
+                        return next(err);
+                    }
+                    assert.strictEqual(deleteVersionId,
+                      data.DeleteMarkers[0].VersionId);
+                    assert.strictEqual(versionId,
+                      data.Versions[0].VersionId);
+                    return next();
+                }),
+            ], err => done(err));
         });
     });
 });
